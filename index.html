@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="断路 — Where the Road Ends｜タイトル画面と三幕のモーションコミック・オープニング（体験版）">
+<meta name="theme-color" content="#000000">
+<title>断路 Where the Road Ends</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@700;900&family=Big+Shoulders+Display:wght@600;800&display=swap">
+<style>
+/* Layout: one game screen (1000x696 design units scaled to fit), controls and shot list underneath. Single dark look. */
+:root{
+  --bg:#0b0e14; --screen:#000; --board:#5b5f66; --frame:#ecebe6;
+  --ink:#e6e6e2; --muted:#8a92a0; --chip:#1b202b; --chipline:#2c3342; --accent:#f2b45a;
+  --display:"Noto Serif SC","Songti SC",serif;
+  --body:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding-block:20px 32px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--display);font-size:clamp(20px,3vw,28px);margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:0;font-size:13px;line-height:1.7;max-width:74ch}
+.stage{position:relative;width:100%;max-width:100%;aspect-ratio:1000/696;background:var(--screen);border-radius:4px;overflow:hidden;user-select:none;cursor:pointer}
+.stage:focus-visible{outline:2px solid var(--frame);outline-offset:3px}
+.inner{position:absolute;left:0;top:0;width:1000px;height:696px;transform-origin:0 0;transition:opacity .4s}
+.ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button{font:inherit;font-size:13px;color:var(--ink);background:var(--chip);border:1px solid var(--chipline);border-radius:6px;padding:7px 14px;cursor:pointer}
+button:hover{background:#252c3a}
+button:focus-visible{outline:2px solid var(--frame);outline-offset:2px}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.status{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px 18px;font-size:13px;color:var(--muted);margin:0;padding:0;list-style:none}
+.shots li b{color:var(--ink);font-weight:700;margin-right:6px;font-variant-numeric:tabular-nums}
+.shots li span{display:block;font-size:12px;opacity:.8}
+.shots li.cur{color:var(--ink)}
+
+.board{display:none;position:absolute;border-radius:10px;background:var(--board);opacity:0;transform:scale(.92);transition:opacity .45s,transform .5s cubic-bezier(.2,.8,.2,1)}
+.pnl{position:absolute;inset:0;opacity:0;transform:translate(var(--dx,0px),var(--dy,16px)) scale(.97);transform-origin:var(--ox) var(--oy);
+  transition:opacity .45s ease,transform .5s cubic-bezier(.2,.8,.2,1);background:#0b1630}
+.pnl video{position:absolute;display:block;object-fit:fill;pointer-events:none}
+.frames{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.frames polygon{opacity:0;transition:opacity .45s}
+.on{opacity:1!important;transform:none!important}
+.pnl.done{cursor:pointer}
+.badge{position:absolute;width:30px;height:30px;border-radius:50%;background:rgba(10,14,22,.78);border:2px solid var(--frame);color:var(--frame);
+  display:grid;place-items:center;font-size:16px;line-height:1;opacity:0;transition:opacity .2s;pointer-events:none}
+.badge svg{width:30px;height:30px;position:absolute;inset:-2px;transform:rotate(-90deg)}
+.badge circle{fill:none;stroke:var(--accent);stroke-width:3;stroke-dasharray:88;stroke-dashoffset:88}
+.badge.show{opacity:1}
+.badge.arm circle{transition:stroke-dashoffset .7s linear;stroke-dashoffset:0}
+
+.burst{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.burst g{opacity:0}
+.burst g.on{animation:lines .45s ease-out both}
+@keyframes lines{0%{opacity:0}35%{opacity:1}100%{opacity:.9}}
+.pop{position:absolute;pointer-events:none;opacity:0;filter:drop-shadow(0 10px 14px rgba(0,0,0,.55))}
+.pop.pon{opacity:1}
+.still{position:absolute;opacity:0;transform-origin:0 0;pointer-events:none}
+.still.ease{transition:opacity .35s ease,transform .5s cubic-bezier(.3,.7,.3,1)}
+.pop.go{transition:transform .7s cubic-bezier(.18,1.4,.35,1)}
+.next{position:absolute;left:746px;top:653px;width:214px;height:36px;opacity:0;transition:opacity .4s;cursor:pointer}
+.next.on{pointer-events:auto}
+.next:not(.on){pointer-events:none}
+.next .arrowpulse{transform-box:fill-box}
+.next.on .arrowpulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:translateX(7px)}}
+.shake{animation:shake .45s linear}
+.jolt{animation:shake .3s linear}
+.quake{animation:quake 1.4s linear}
+@keyframes quake{0%{transform:none}5%{transform:translate(-9px,6px)}10%{transform:translate(8px,-5px)}15%{transform:translate(-8px,4px)}20%{transform:translate(7px,-6px)}28%{transform:translate(-6px,4px)}36%{transform:translate(5px,-3px)}46%{transform:translate(-4px,3px)}58%{transform:translate(3px,-2px)}72%{transform:translate(-2px,1px)}86%{transform:translate(1px,-1px)}100%{transform:none}}
+.act{position:absolute;left:154px;top:657px;height:28px;display:flex;align-items:center;font-family:"Noto Serif JP","Noto Serif SC",serif;font-weight:700;font-size:16px;letter-spacing:.22em;color:var(--frame);pointer-events:none}
+@keyframes shake{0%,100%{transform:none}20%{transform:translate(-7px,4px)}40%{transform:translate(6px,-4px)}60%{transform:translate(-4px,3px)}80%{transform:translate(3px,-2px)}}
+
+.inner.out{opacity:0;transform-origin:0 0}
+.cap{position:absolute;left:54px;top:40px;padding:6px 14px 7px;background:var(--frame);color:#14161b;font-family:var(--display);font-size:17px;letter-spacing:.12em;
+  transform:rotate(-1.5deg) translateY(-8px);opacity:0;transition:opacity .5s,transform .5s cubic-bezier(.2,.8,.2,1);box-shadow:3px 3px 0 #000;z-index:5;pointer-events:none}
+.cap small{display:block;font-family:var(--body);font-size:10px;letter-spacing:.2em;color:#5a5f6a;margin-bottom:1px}
+.cap.on{opacity:1;transform:rotate(-1.5deg)}
+.dots{position:absolute;left:40px;top:669px;display:flex;gap:8px;pointer-events:none}
+.dots i{width:30px;height:5px;border-radius:3px;background:#3a404c}
+.dots i.cur{background:var(--frame)}
+.fxl{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.fxl .flash{opacity:0}
+.fxl .flash.fire{animation:flash .55s ease-out both}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+.fxl .focus{opacity:0;transition:opacity .25s}
+.fxl .focus.shown{opacity:1}
+.fxl .burstg{opacity:0}
+.fxl .burstg.fire{animation:lines .45s ease-out both}
+.spot{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .45s}
+.spot.on{opacity:1}
+.frames polygon.hl{stroke:var(--accent)!important;transition:stroke .3s}
+.punch{animation:punch .38s cubic-bezier(.2,1.6,.4,1)}
+@keyframes punch{0%{transform:scale(1.09)}100%{transform:scale(1)}}
+.pnl.exp{transition:clip-path 1.2s cubic-bezier(.65,0,.2,1)}
+.pnl.exp video{transition:left 1.2s cubic-bezier(.65,0,.2,1),top 1.2s cubic-bezier(.65,0,.2,1),width 1.2s cubic-bezier(.65,0,.2,1),height 1.2s cubic-bezier(.65,0,.2,1)}
+.fadeaway{opacity:0!important;transition:opacity .6s!important}
+.endtitle{position:absolute;left:0;right:0;top:250px;text-align:center;opacity:0;transition:opacity .8s .2s;pointer-events:none;
+  font-family:"Noto Serif JP",var(--display);color:#fff;font-size:44px;letter-spacing:.3em;text-shadow:0 4px 24px rgba(0,0,0,.8)}
+.endtitle small{display:block;font-family:var(--body);font-size:14px;letter-spacing:.5em;color:#d9dde6;margin-top:10px}
+.endtitle.on{opacity:1}
+
+/* ---------- title screen ---------- */
+.tl{z-index:20;background:#000;overflow:hidden}
+.tl video{position:absolute;display:block;object-fit:cover;pointer-events:none}
+.tl .shade{position:absolute;left:0;top:67px;width:1000px;height:563px;pointer-events:none;
+  background:linear-gradient(105deg,rgba(4,7,15,.72) 0%,rgba(4,7,15,.35) 30%,rgba(4,7,15,0) 48%),linear-gradient(285deg,rgba(4,7,15,.7) 0%,rgba(4,7,15,.25) 28%,rgba(4,7,15,0) 45%)}
+.ttl{position:absolute;left:52px;top:96px;transition:opacity .35s}
+.crack{position:relative;width:236px;height:118px;font-family:"Noto Serif JP","Noto Serif SC",serif;font-weight:900;font-size:108px;line-height:118px;color:var(--frame);letter-spacing:.04em}
+.crack span{position:absolute;left:0;top:0;white-space:nowrap;text-shadow:5px 6px 0 #000}
+.crack .a{clip-path:polygon(0 0,57% 0,49% 46%,53% 54%,44% 100%,0 100%)}
+.crack .b{clip-path:polygon(57% 0,100% 0,100% 100%,44% 100%,53% 54%,49% 46%);transform:translate(7px,9px) rotate(1.6deg);transform-origin:44% 100%}
+/* step 1: the crack tears open with a jolt */
+.ttl.open .crack{animation:tjolt .32s linear}
+.ttl.open .crack .b{transform:translate(16px,20px) rotate(4.5deg);transition:transform .28s cubic-bezier(.2,.9,.3,1)}
+@keyframes tjolt{0%,100%{transform:none}25%{transform:translate(-4px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,1px)}}
+/* step 2: the right half drops away under gravity */
+.ttl.fall .crack .b{transform:translate(40px,330px) rotate(19deg);opacity:0;
+  transition:transform 1.05s cubic-bezier(.55,0,.95,.45),opacity .35s linear .7s}
+/* step 3: what is left fades with the flash */
+.ttl.gone .crack .a,.ttl.gone .en,.ttl.gone .rule{opacity:0;transition:opacity .35s}
+.en{margin-top:16px;font-family:"Big Shoulders Display","Noto Sans JP",sans-serif;font-weight:800;font-size:17px;letter-spacing:.34em;white-space:nowrap;color:var(--frame);text-shadow:2px 2px 0 #000}
+.rule{margin-top:12px;width:62px;height:4px;background:var(--accent);box-shadow:2px 2px 0 #000}
+.menu{position:absolute;right:46px;top:440px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;transition:opacity .3s}
+.menu[hidden]{display:none}
+#chap{top:388px}
+.tl .mi{all:unset;box-sizing:border-box;position:relative;width:300px;height:46px;padding:0 34px 0 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;white-space:nowrap;
+  font-family:"Noto Serif JP","Noto Serif SC",serif;font-weight:700;font-size:19px;letter-spacing:.12em;color:var(--frame);cursor:pointer;
+  background:rgba(6,10,20,.62);clip-path:polygon(0 0,calc(100% - 20px) 0,100% 50%,calc(100% - 20px) 100%,0 100%);
+  transition:transform .12s cubic-bezier(.2,0,0,1),background .12s,color .12s}
+.tl .mi small{font-family:"Big Shoulders Display",sans-serif;font-weight:600;font-size:12px;letter-spacing:.22em;color:#8a92a0}
+.tl .mi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);transition:width .12s}
+.tl .mi.sel{background:var(--frame);color:#111;transform:translateX(-16px)}
+.tl .mi.sel small{color:#5a5f6a}
+.tl .mi.sel::before{width:6px}
+.tl .mi:focus-visible{outline:none}
+.tbar{position:absolute;top:648px;font-family:"Noto Sans JP",sans-serif;font-size:12px;letter-spacing:.24em;color:#8a92a0;transition:opacity .3s}
+.tbar kbd{font:inherit;color:var(--frame);border:1px solid #3a404c;border-radius:3px;padding:0 5px;margin:0 2px}
+.tl .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.tl .flash.fire{animation:tflash .5s ease-out both}
+@keyframes tflash{0%{opacity:.92}100%{opacity:0}}
+.tl .blk{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .3s ease-in}
+.tl.leaving .menu,.tl.leaving .tbar{opacity:0}
+.tl.leaving .blk.on{opacity:1}
+@media (prefers-reduced-motion:reduce){
+  .crack .b,.tl .mi,.ttl.open .crack .b,.ttl.fall .crack .b{transition:none}
+  .ttl.open .crack{animation:none}
+  .tl .flash.fire{animation:none}
+  .pnl.exp,.pnl.exp video,.cap,.spot{transition:none}
+  .punch,.fxl .flash.fire,.fxl .burstg.fire,.jolt,.quake{animation:none}
+  .board,.pnl,.frames polygon,.pop.go{transition:none}
+  .shake,.burst g.on,.next.on .arrowpulse{animation:none}
+  .burst g.on{opacity:.9}
+}
+</style>
+
+<style>
+/* showcase: the game screen alone, centred and scaled to the window */
+html,body{height:100%;margin:0;background:#000;overflow:hidden}
+.wrap{max-width:none;height:100%;display:flex;align-items:center;justify-content:center;gap:0;padding-block:0;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+.stage{width:min(100%,calc((100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))*1000/696));border-radius:0;cursor:default}
+.stage:focus-visible{outline:none}
+.offstage{display:none!important}
+.homebtn{position:absolute;left:746px;top:653px;width:214px;height:36px;opacity:0;transition:opacity .5s;cursor:pointer;pointer-events:none}
+.homebtn.on{opacity:1;pointer-events:auto}
+.fsbtn{all:unset;position:absolute;right:40px;top:22px;font-family:"Noto Sans JP",sans-serif;font-size:12px;letter-spacing:.2em;color:#8a92a0;cursor:pointer;padding:4px 8px;border:1px solid #2c3342;border-radius:3px}
+.fsbtn:hover,.fsbtn:focus-visible{color:var(--frame);border-color:#5a6070}
+</style>
+
+<style>[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="stage" id="stage" tabindex="0" aria-label="ゲーム画面" lang="ja">
+    <div class="inner" id="inner"></div>
+    <div class="inner tl" id="tl">
+      <video id="tv" src="vid/title.mp4" muted loop playsinline preload="auto" style="left:0;top:67px;width:1000px;height:563px"></video>
+      <div class="shade"></div>
+      <div class="ttl" id="ttl">
+        <div class="crack" aria-label="断路"><span class="a" aria-hidden="true">断路</span><span class="b" aria-hidden="true">断路</span></div>
+        <div class="en">WHERE THE ROAD ENDS</div>
+        <div class="rule"></div>
+      </div>
+      <nav class="menu" id="menu" aria-label="メインメニュー">
+        <button class="mi" type="button" data-a="start">はじめから<small>START</small></button>
+        <button class="mi" type="button" data-a="chap">チャプター選択<small>CHAPTER</small></button>
+        <button class="mi" type="button" data-a="sound" id="msound">サウンド　オフ<small>SOUND</small></button>
+      </nav>
+      <nav class="menu" id="chap" aria-label="チャプター選択" hidden>
+        <button class="mi" type="button" data-a="act0">第一幕　依頼<small>I</small></button>
+        <button class="mi" type="button" data-a="act1">第二幕　崩落<small>II</small></button>
+        <button class="mi" type="button" data-a="act2">第三幕　断崖<small>III</small></button>
+        <button class="mi" type="button" data-a="back">戻る<small>BACK</small></button>
+      </nav>
+      <div class="tbar" style="left:40px"><kbd>↑</kbd><kbd>↓</kbd> 選択　<kbd>Enter</kbd> 決定　<kbd>Esc</kbd> 戻る</div>
+      <div class="tbar" style="right:40px">体験版 · DEMO</div>
+      <button class="fsbtn" id="fsbtn" type="button">全画面</button>
+      <div class="flash" id="tflash"></div>
+      <div class="blk" id="tblk"></div>
+    </div>
+  </div>
+
+  <div class="ctl offstage" aria-hidden="true">
+    <button id="replay" type="button">回到标题画面</button>
+    <button id="skip" type="button">跳到本页结尾</button>
+    <button id="sound" type="button" aria-pressed="false">声音：关</button>
+    <span class="status" id="status"></span>
+  </div>
+  <ol class="shots offstage" id="shots" aria-hidden="true"></ol>
+</div>
+
+<script>
+const FRAME='#ecebe6',ACCENT='#f2b45a';
+const VID={driver:[1112,834],letter:[1120,630],road:[1120,480],bridge:[1120,408],pedal:[1112,834],splash:[1112,834],cliff:[1120,480],out:[1120,630],tree:[1120,480]};
+/* splash freezes on the storyboard still; the car is cut from that still (still px) */
+const CUT={splash:{x:598,y:205,w:850,h:625}};
+/* fx: spot = 聚光, shake = 震动, impact = 冲击闪白+集中线, pop = 冲出格子, expand = 放大铺满进入游戏 */
+const PAGES=[
+ {act:'第一幕',name:'委托',ja:'第一幕 · 依頼',board:[150,20,700,656],
+  panels:[
+   {id:'1-1',t:'暴雨山路',m:'交代环境',v:'road',pts:'40,30.0 960,30.0 960,308.2 40,335.8',fx:.5,fy:.62,dy:'14px'},
+   {id:'1-2',t:'车内的侦探',m:'人物登场，停在侦探驾驶的画面',v:'driver',pts:'40,350.1 505,335.8 428,662.0 40,662.0',fx:.35,fy:.5,dx:'-18px',dy:'0px'},
+   {id:'1-3',t:'委托书',m:'委托书特写',v:'letter',pts:'519,335.8 960,322.5 960,662.0 442,662.0',fx:.55,fy:.5,dx:'18px',dy:'0px'}
+  ]},
+ {act:'第二幕',name:'断桥',ja:'第二幕 · 崩落',board:[150,20,700,656],
+  panels:[
+   {id:'2-1',t:'断桥坍塌',m:'裂开时轻震，桥面坠落时强震（跟随视频）',v:'bridge',pts:'40,30 960,30 960,250 40,290',fx:.5,fy:.5,dy:'-14px',
+    cues:[{t:2.05,fx:'jolt'},{t:3.72,fx:'quake'}]},
+   {id:'2-2',t:'急刹水花',m:'定格后汽车冲进断桥那一格',v:'splash',pts:'40,304 646,278 606,662 40,662',fx:1,fy:.3,dx:'-18px',dy:'0px',fx2:'pop',
+    still:{src:'img/splash_still.jpg',W:1448,M:[0.783409,0.00377,-79.904,-0.00377,0.783409,-13.258]},
+    pop:{a:[1430,800],s:1.3,t:[-10,-6],r:0}},
+   {id:'2-3',t:'猛踩刹车',m:'脚踩下的瞬间闪白，集中线定格（跟随视频）',v:'pedal',pts:'660,277 960,264 960,662 620,662',fx:.5,fy:.5,dx:'18px',dy:'0px',c:[580,520],
+    cues:[{t:1.89,fx:'impact'}]}
+  ]},
+ {act:'第三幕',name:'崖边',ja:'第三幕 · 断崖',board:[150,20,700,656],
+  panels:[
+   {id:'3-1',t:'断崖边急停',m:'全景：车停在崖边，对岸是古堡',v:'cliff',pts:'40,30 960,30 960,330 40,330',fx:.3,fy:.55,dy:'14px'},
+   {id:'3-2',t:'侦探下车',m:'人物下车，安静的停顿',v:'out',pts:'40,344 400,344 400,662 40,662',fx:.65,fy:.5,dx:'-18px',dy:'0px'},
+   {id:'3-3',t:'走到树前',m:'放大：这一格铺满屏幕，直接进入游戏',v:'tree',pts:'414,344 960,344 960,662 414,662',fx:.4,fy:.5,dx:'18px',dy:'0px',fx2:'expand'}
+  ]}
+];
+
+/* panels occupy y 22-640, leaving a bottom bar for the page label and the next-page button */
+PAGES.forEach(P=>P.panels.forEach(p=>{p.pts=p.pts.split(' ').map(q=>{const [x,y]=q.split(',').map(Number);return x+','+(22+(y-30)*(618/632)).toFixed(1);}).join(' ');}));
+const stage=document.getElementById('stage'),inner=document.getElementById('inner'),status=document.getElementById('status'),shots=document.getElementById('shots');
+let page=0,state='idle',timers=[],muted=true,P=null;
+function fit(){const k=`scale(${stage.clientWidth/1000})`;inner.style.transform=k;document.getElementById('tl').style.transform=k;}
+new ResizeObserver(fit).observe(stage);fit();
+
+const pts2=s=>s.split(' ').map(q=>q.split(',').map(Number));
+function bbox(pts){const p=pts2(pts),xs=p.map(a=>a[0]),ys=p.map(a=>a[1]);const x=Math.min(...xs),y=Math.min(...ys);return [x,y,Math.max(...xs)-x,Math.max(...ys)-y];}
+function cover(box,v,fx,fy){const [bx,by,bw,bh]=box,[iw,ih]=VID[v];const s=Math.max(bw/iw,bh/ih);const dw=iw*s,dh=ih*s;return {x:bx+(bw-dw)*fx,y:by+(bh-dh)*fy,w:dw,h:dh,s};}
+const place=p=>cover(bbox(p.pts),p.v,p.fx,p.fy);
+const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
+function clear(){timers.forEach(clearTimeout);timers=[];}
+const polyCss=pts=>pts2(pts).map(([x,y])=>`${x}px ${y}px`).join(',');
+
+function build(){
+  P=PAGES[page];
+  let h=`<div class="board" id="board" style="left:${P.board[0]}px;top:${P.board[1]}px;width:${P.board[2]}px;height:${P.board[3]}px"></div>`;
+  let frames='',fxl='',pops='',badges='',spots='';
+  P.panels.forEach((p,i)=>{
+    const r=place(p);p._r=r;const [bx,by,bw,bh]=bbox(p.pts);
+    h+=`<div class="pnl" id="pn${i}" style="clip-path:polygon(${polyCss(p.pts)});--dx:${p.dx||'0px'};--dy:${p.dy||'16px'};--ox:${bx+bw/2}px;--oy:${by+bh/2}px">
+      <video id="v${i}" src="vid/${p.v}.mp4" muted playsinline preload="auto" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;transform-origin:${bx+bw/2-r.x}px ${by+bh/2-r.y}px"></video>${p.still?`<img class="still" id="st${i}" src="${p.still.src}" alt="" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px">`:''}</div>`;
+    frames+=`<polygon id="fr${i}" points="${p.pts}" fill="none" stroke="${FRAME}" stroke-width="9" stroke-linejoin="round"/>`;
+    badges+=`<div class="badge" id="bd${i}" style="left:${bx+12}px;top:${by+12}px"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="14"/></svg>↻</div>`;
+    if((p.cues||[]).some(c=>c.fx==='impact')){
+      const cx=r.x+p.c[0]*r.s,cy=r.y+p.c[1]*r.s,R=Math.hypot(bw,bh);let tri='';
+      for(let k=0;k<46;k++){const a=k/46*Math.PI*2+(k%3)*.03,wd=.012+(k%4)*.006,rin=Math.min(bw,bh)*(.36+((k*37)%11)/40);
+        const x1=cx+Math.cos(a-wd)*R,y1=cy+Math.sin(a-wd)*R,x2=cx+Math.cos(a+wd)*R,y2=cy+Math.sin(a+wd)*R,x3=cx+Math.cos(a)*rin,y3=cy+Math.sin(a)*rin;
+        tri+=`<polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="#f4f1ea" fill-opacity=".82"/>`;}
+      fxl+=`<clipPath id="fc${i}"><polygon points="${p.pts}"/></clipPath><g clip-path="url(#fc${i})"><g class="focus" id="fo${i}">${tri}</g><rect class="flash" id="fl${i}" x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#fff"/></g>`;
+    }
+    if(p.fx2==='pop'){
+      const c=CUT[p.v],s=p.still?r.w/p.still.W:r.s,L=r.x+c.x*s,T=r.y+c.y*s,W=c.w*s,H=c.h*s,ax=r.x+p.pop.a[0]*s,ay=r.y+p.pop.a[1]*s;
+      p._pop=`translate(${p.pop.t[0]}px,${p.pop.t[1]}px) rotate(${p.pop.r}deg) scale(${p.pop.s})`;
+      pops+=`<img class="pop" id="pop${i}" src="img/cut_${p.v}.png" alt="" style="left:${L}px;top:${T}px;width:${W}px;height:${H}px;transform-origin:${ax-L}px ${ay-T}px">`;
+      const cx=L+W/2,cy=T+H/2,R=Math.hypot(W,H)*p.pop.s*.5;let ls='';
+      for(let k=0;k<16;k++){const a=k/16*Math.PI*2+.2,r1=R*(.8+(k%2)*.08),r2=R*(1.05+(k%3)*.1);
+        ls+=`<line x1="${cx+Math.cos(a)*r1}" y1="${cy+Math.sin(a)*r1}" x2="${cx+Math.cos(a)*r2}" y2="${cy+Math.sin(a)*r2}" stroke="${FRAME}" stroke-width="${k%2?3:5}" stroke-linecap="round"/>`;}
+      fxl+=`<clipPath id="bc${i}"><polygon points="${p.pts}"/></clipPath><g class="burstg" id="bu${i}" clip-path="url(#bc${i})">${ls}</g>`;
+    }
+    if(p.fx2==='spot'){
+      const hole=pts2(p.pts).map(([x,y],k)=>(k?'L':'M')+x+' '+y).join(' ')+' Z';
+      spots+=`<svg class="spot" id="sp${i}" viewBox="0 0 1000 696" width="1000" height="696"><path d="M-20 -20H1020V716H-20Z ${hole}" fill="#000" fill-opacity=".68" fill-rule="evenodd"/></svg>`;
+    }
+  });
+  const last=page===PAGES.length-1;
+  h+=`<svg class="fxl" viewBox="0 0 1000 696" width="1000" height="696">${fxl}</svg>`;
+  h+=spots;
+  h+=`<svg class="frames" id="frames" viewBox="0 0 1000 696" width="1000" height="696">${frames}</svg>`;
+  h+=pops+badges;
+  h+=`<div class="act" id="cap">${P.ja}</div>`;
+  h+=`<div class="dots" id="dots">${PAGES.map((_,k)=>`<i class="${k===page?'cur':''}"></i>`).join('')}</div>`;
+  h+=`<svg class="next" id="next" viewBox="0 0 214 36" role="button" aria-label="${last?'ゲームスタート':'次のページ'}"><polygon points="0,1 188,1 212,18 188,35 0,35" fill="${FRAME}" stroke="#000" stroke-width="2"/>
+    <text x="88" y="25" text-anchor="middle" font-size="19" font-weight="700" fill="#111" font-family="Noto Sans JP,Noto Sans SC,sans-serif">${last?'ゲームスタート':'次のページ'}</text>
+    <polygon class="arrowpulse" points="175,11 190,18 175,25" fill="#111"/></svg>`;
+  inner.innerHTML=h;
+  shots.innerHTML=P.panels.map((p,i)=>`<li id="s${i}"><b>${p.id}</b>${p.t}<span>${p.m}</span></li>`).join('');
+  P.panels.forEach((p,i)=>{
+    p._ended=false;p._playing=false;p._seq=false;
+    const v=document.getElementById('v'+i);v.muted=muted;v.addEventListener('ended',()=>onEnded(i));
+    if(p.end)v.addEventListener('timeupdate',()=>{if(p._playing&&v.currentTime>=p.end){v.pause();onEnded(i);}});
+    const pn=document.getElementById('pn'+i);let ht=null;
+    pn.addEventListener('mouseenter',()=>{if(!canReplay(i))return;const b=document.getElementById('bd'+i);b.classList.add('show');
+      requestAnimationFrame(()=>b.classList.add('arm'));ht=setTimeout(()=>replay(i),700);});
+    pn.addEventListener('mouseleave',()=>{clearTimeout(ht);document.getElementById('bd'+i).classList.remove('show','arm');});
+    pn.addEventListener('click',e=>{if(canReplay(i)){e.stopPropagation();clearTimeout(ht);document.getElementById('bd'+i).classList.remove('show','arm');replay(i);}});
+  });
+  document.getElementById('next').addEventListener('click',e=>{e.stopPropagation();if(state==='done')advancePage();});
+}
+
+const canReplay=i=>{const p=P.panels[i];return p._ended&&!p._playing&&state!=='playing';};
+function shake(){stage.classList.remove('shake');void stage.offsetWidth;stage.classList.add('shake');}
+function mark(i){shots.querySelectorAll('li').forEach(l=>l.classList.remove('cur'));const li=document.getElementById('s'+i);if(li)li.classList.add('cur');
+  status.textContent=`${P.act}「${P.name}」 · ${P.panels[i].id} ${P.panels[i].t}`;}
+
+/* reset a panel's effect before (re)playing */
+function fxReset(i){
+  const p=P.panels[i];
+  if(p.still){const st=document.getElementById('st'+i);st.classList.remove('ease');st.style.opacity=0;st.style.transform='none';}
+  if(p.fx2==='pop'){const e=document.getElementById('pop'+i);e.classList.remove('go','pon');e.style.transform='none';document.getElementById('bu'+i).classList.remove('fire');}
+  if((p.cues||[]).some(c=>c.fx==='impact')){document.getElementById('fo'+i).classList.remove('shown');document.getElementById('fl'+i).classList.remove('fire');}
+  if(p.fx2==='spot'){document.getElementById('sp'+i).classList.remove('on');document.getElementById('fr'+i).classList.remove('hl');}
+}
+/* run a panel's effect when its clip freezes; returns how long to wait before the next panel */
+function fxRun(i,instant){
+  const p=P.panels[i];
+  switch(p.fx2){
+    case 'shake': if(!instant)shake(); return 450;
+    case 'pop':{
+      const e=document.getElementById('pop'+i),bu=document.getElementById('bu'+i),st=p.still&&document.getElementById('st'+i);
+      if(instant){if(st){st.style.opacity=1;st.style.transform='none';}e.classList.add('pon');e.style.transform=p._pop;bu.classList.add('fire');return 0;}
+      const burst=()=>{e.classList.add('pon');requestAnimationFrame(()=>requestAnimationFrame(()=>{e.classList.add('go');e.style.transform=p._pop;bu.classList.add('fire');}));};
+      if(!st){burst();return 950;}
+      /* ease from the clip's last frame into the storyboard still (short push-in), then burst out */
+      const r=p._r,k=r.w/1112,f=p.still.W/1112,M=p.still.M;
+      st.classList.remove('ease');st.style.opacity=0;
+      st.style.transform=`matrix(${M[0]*f},${M[3]*f},${M[1]*f},${M[4]*f},${M[2]*k},${M[5]*k})`;
+      void st.offsetWidth;
+      requestAnimationFrame(()=>{st.classList.add('ease');st.style.opacity=1;st.style.transform='none';});
+      later(burst,480);
+      return 1450;}
+    case 'spot':{
+      if(instant)return 0;
+      const sp=document.getElementById('sp'+i),fr=document.getElementById('fr'+i);
+      sp.classList.add('on');fr.classList.add('hl');
+      timers.push(setTimeout(()=>{sp.classList.remove('on');fr.classList.remove('hl');},1700));
+      return 2100;}
+    case 'expand': return expand(i,instant);
+  }
+  return 350;
+}
+
+/* effects tied to a moment inside the clip */
+function stageAnim(cls){stage.classList.remove('shake','jolt','quake');void stage.offsetWidth;stage.classList.add(cls);}
+function cueFire(i,c,instant){
+  if(c.fx==='impact'){
+    document.getElementById('fo'+i).classList.add('shown');
+    if(instant)return;
+    const fl=document.getElementById('fl'+i);fl.classList.remove('fire');void fl.getBoundingClientRect();fl.classList.add('fire');
+    const v=document.getElementById('v'+i);v.classList.remove('punch');void v.offsetWidth;v.classList.add('punch');
+  } else if(!instant) stageAnim(c.fx);
+}
+function watchCues(i){
+  const p=P.panels[i],v=document.getElementById('v'+i);if(!p.cues)return;
+  const tick=()=>{if(!p._playing||P.panels[i]!==p)return;
+    p.cues.forEach((c,k)=>{if(!p._fired[k]&&v.currentTime>=c.t){p._fired[k]=true;cueFire(i,c);}});
+    requestAnimationFrame(tick);};
+  requestAnimationFrame(tick);
+}
+function cuesFinal(i){const p=P.panels[i];(p.cues||[]).forEach((c,k)=>{if(!p._fired||!p._fired[k])cueFire(i,c,true);});}
+function expand(i,instant){
+  const p=P.panels[i],pn=document.getElementById('pn'+i),v=document.getElementById('v'+i),r=cover([0,0,1000,696],p.v,p.fx,p.fy);
+  ['board','frames','cap','dots'].forEach(id=>document.getElementById(id).classList.add('fadeaway'));
+  P.panels.forEach((q,k)=>{if(k!==i)document.getElementById('pn'+k).classList.add('fadeaway');});
+  if(!instant)pn.classList.add('exp');
+  pn.style.clipPath='polygon(0px 0px,1000px 0px,1000px 696px,0px 696px)';
+  Object.assign(v.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});
+  p._expanded=true;
+  return instant?0:1900;
+}
+
+/* fade a clip's sound out over ms, then run done (pause / jump to the last frame) */
+function fadeOutVideo(v,ms,done){
+  if(v._fade)cancelAnimationFrame(v._fade);
+  if(v.paused||v.muted||v.volume===0){v._fade=null;done&&done();return;}
+  const v0=v.volume,t0=performance.now();
+  const step=now=>{const k=Math.min(1,(now-t0)/ms);v.volume=v0*(1-k)*(1-k);
+    if(k<1)v._fade=requestAnimationFrame(step);else{v._fade=null;done&&done();}};
+  v._fade=requestAnimationFrame(step);
+}
+function startVideo(i){
+  const p=P.panels[i],v=document.getElementById('v'+i);if(v._fade){cancelAnimationFrame(v._fade);v._fade=null;}v.volume=1;p._playing=true;p._ended=false;
+  if(!p._expanded)fxReset(i);document.getElementById('pn'+i).classList.remove('done');
+  try{v.currentTime=0;}catch(e){}
+  v.muted=muted;
+  p._fired=[];watchCues(i);
+  const pr=v.play();if(pr&&pr.catch)pr.catch(()=>{v.muted=true;v.play().catch(()=>onEnded(i));});
+}
+function onEnded(i){
+  const p=P.panels[i];if(p._ended)return;p._ended=true;p._playing=false;
+  document.getElementById('pn'+i).classList.add('done');cuesFinal(i);
+  const wait=(p.fx2==='expand'&&p._expanded)?0:fxRun(i);
+  if(state==='playing'&&p._seq){p._seq=false;later(()=>nextPanel(i+1),wait+300);}
+}
+function showPanel(i){document.getElementById('pn'+i).classList.add('on');document.getElementById('fr'+i).classList.add('on');mark(i);}
+function pageDone(){
+  if(pageTrack())music(null,0,.5);                      /* last panel has frozen: fade the act music out over 0.5s */
+  state='done';document.getElementById('next').classList.add('on');
+  status.textContent=`${P.act}「${P.name}」播放完毕 · 悬停或点击格子可重播`;
+}
+function nextPanel(i){
+  if(state!=='playing')return;
+  if(i>=P.panels.length){pageDone();return;}
+  showPanel(i);P.panels[i]._seq=true;later(()=>startVideo(i),380);
+  if(i===0&&pageTrack())music(pageTrack(),1.6,1);   /* music fades in together with the first picture */
+}
+/* only one clip plays at a time: stop any other playing panel and snap it to its frozen final frame */
+function stopOthers(i){
+  P.panels.forEach((q,k)=>{
+    if(k===i||!q._playing)return;
+    const v=document.getElementById('v'+k);
+    fadeOutVideo(v,300,()=>{try{v.pause();v.currentTime=q.end||Math.max(0,v.duration-0.02);}catch(e){}});
+    q._playing=false;q._ended=true;q._seq=false;
+    document.getElementById('pn'+k).classList.add('done');
+    fxRun(k,true);cuesFinal(k);
+  });
+}
+function replay(i){stopOthers(i);mark(i);startVideo(i);}
+
+function finish(){
+  if(state!=='playing')return;clear();
+  document.getElementById('board').classList.add('on');document.getElementById('cap').classList.add('on');
+  P.panels.forEach((p,i)=>{
+    const v=document.getElementById('v'+i);p._seq=false;p._playing=false;showPanel(i);
+    const end=()=>{try{v.pause();v.currentTime=p.end||Math.max(0,v.duration-0.02);}catch(e){}};
+    if(v.readyState>=1)fadeOutVideo(v,250,end);else v.addEventListener('loadedmetadata',end,{once:true});
+    if(!p._ended){p._ended=true;fxRun(i,true);cuesFinal(i);}
+    document.getElementById('pn'+i).classList.add('done');
+  });
+  pageDone();
+}
+function play(quick){
+  clear();state='playing';build();if(cur&&cur.k!==pageTrack())music(null,0,1);
+  later(()=>document.getElementById('board').classList.add('on'),quick?0:200);
+  later(()=>document.getElementById('cap').classList.add('on'),quick?300:450);
+  later(()=>nextPanel(0),quick?450:800);
+}
+function advancePage(){
+  clear();state='idle';
+  if(page<PAGES.length-1){inner.style.opacity=0;inner.querySelectorAll('video').forEach(v=>fadeOutVideo(v,400,()=>v.pause()));}
+  if(page<PAGES.length-1){setTimeout(()=>{page++;play();inner.style.opacity=1;},450);}
+  else setTimeout(()=>{inner.style.opacity=1;document.getElementById('next').classList.remove('on');
+    inner.insertAdjacentHTML('beforeend',`<div class="endtitle on" style="top:604px;font-size:22px;letter-spacing:.4em">— ゲーム開始 —</div><svg class="homebtn" id="homebtn" viewBox="0 0 214 36" role="button" aria-label="タイトルへ"><polygon points="0,1 188,1 212,18 188,35 0,35" fill="#ecebe6" stroke="#000" stroke-width="2"/><text x="96" y="25" text-anchor="middle" font-size="18" font-weight="700" fill="#111" font-family="Noto Sans JP,sans-serif">タイトルへ</text></svg>`);
+    const hb=document.getElementById('homebtn');hb.addEventListener('click',e=>{e.stopPropagation();showTitle();});setTimeout(()=>hb.classList.add('on'),1600);
+    status.textContent='开场结束，进入游戏';},450);
+}
+
+/* ---------- music: one sample-accurate gapless loop at a time, every change fades in / out ----------
+   title  -> vid/bgm_loop.wav  (cut to exactly 4 phrases, 15.147 s)
+   every clip's own sound has a baked 0.25 s fade-in and 0.5 s fade-out; interrupted clips fade out in script */
+const TRACKS={title:{url:'vid/bgm_loop.wav',vol:.85}};
+let ac=null,master=null,cur=null,want=null;const bufs={},loading={};
+function audioInit(){
+  if(ac)return;try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  master=ac.createGain();master.connect(ac.destination);
+}
+function loadTrack(k){
+  if(bufs[k])return Promise.resolve(bufs[k]);
+  if(!loading[k])loading[k]=fetch(TRACKS[k].url).then(r=>r.arrayBuffer()).then(d=>new Promise((ok,no)=>ac.decodeAudioData(d,ok,no))).then(b=>bufs[k]=b).catch(()=>null);
+  return loading[k];
+}
+/* music(k): fade the current loop out and fade loop k in; music(null): fade out to silence */
+function music(k,fadeIn,fadeOut){
+  want=k;
+  if(cur&&cur.k!==k){const c=cur,t=ac.currentTime,d=fadeOut==null?1:fadeOut;cur=null;
+    c.g.gain.cancelScheduledValues(t);c.g.gain.setValueAtTime(c.g.gain.value,t);c.g.gain.linearRampToValueAtTime(0,t+d);try{c.src.stop(t+d+.05);}catch(e){}}
+  if(!k||muted||(cur&&cur.k===k))return;
+  audioInit();if(!ac)return;if(ac.state==='suspended')ac.resume();
+  loadTrack(k).then(buf=>{
+    if(!buf||want!==k||muted||cur)return;
+    const src=ac.createBufferSource(),g=ac.createGain(),t=ac.currentTime;src.buffer=buf;src.loop=true;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(TRACKS[k].vol,t+(fadeIn==null?1.5:fadeIn));
+    src.connect(g).connect(master);src.start();cur={k,src,g};
+  });
+}
+const pageTrack=()=>PAGES[page].bgm||null;
+function setMuted(m){
+  muted=m;const b=document.getElementById('sound');b.setAttribute('aria-pressed',String(!muted));b.textContent='声音：'+(muted?'关':'开');
+  document.getElementById('msound').firstChild.nodeValue='サウンド　'+(muted?'オフ':'オン');
+  inner.querySelectorAll('video').forEach(v=>{v.muted=muted;});
+  if(muted)music(null,0,.4);else music(state==='title'?'title':state==='playing'?pageTrack():null,1);
+}
+
+/* ---------- title screen ---------- */
+const tl=document.getElementById('tl'),tv=document.getElementById('tv');
+function menuEl(){return document.getElementById('chap').hidden?document.getElementById('menu'):document.getElementById('chap');}
+function select(btn){tl.querySelectorAll('.mi').forEach(b=>b.classList.toggle('sel',b===btn));btn.focus({preventScroll:true});}
+function showTitle(){
+  clear();state='title';inner.querySelectorAll('video').forEach(v=>{if(v._fade)cancelAnimationFrame(v._fade);v.pause();});inner.innerHTML='';shots.innerHTML='';
+  tl.hidden=false;tl.classList.remove('leaving');document.getElementById('ttl').classList.remove('open','fall','gone');
+  document.getElementById('tblk').classList.remove('on');document.getElementById('tflash').classList.remove('fire');
+  document.getElementById('menu').hidden=false;document.getElementById('chap').hidden=true;
+  tv.muted=true;try{tv.currentTime=0;}catch(e){}tv.play().catch(()=>{});music('title',1.2,.8);
+  select(document.querySelector('#menu .mi'));
+  status.textContent='标题画面';
+}
+function startGame(k){
+  if(state==='trans')return;state='trans';
+  /* the title music fades out across the break */
+  music(null,0,2.2);
+  const ttl=document.getElementById('ttl');
+  tl.classList.add('leaving');
+  /* 0.35s: the crack tears open */
+  setTimeout(()=>ttl.classList.add('open'),350);
+  /* 0.9s: after a beat, the right half falls */
+  setTimeout(()=>ttl.classList.add('fall'),900);
+  /* 1.75s: lightning flash, the idle frame freezes, the rest of the title goes */
+  setTimeout(()=>{document.getElementById('tflash').classList.add('fire');tv.pause();ttl.classList.add('gone');},1750);
+  /* 2.0s: to black */
+  setTimeout(()=>document.getElementById('tblk').classList.add('on'),2000);
+  /* 2.35s: comic begins */
+  setTimeout(()=>{tl.hidden=true;page=k;inner.style.opacity=1;play(true);},2350);
+}
+tl.addEventListener('click',e=>{
+  const b=e.target.closest('.mi');if(!b||state!=='title')return;e.stopPropagation();
+  const a=b.dataset.a;
+  if(a==='start')startGame(0);
+  else if(a==='chap'){document.getElementById('menu').hidden=true;document.getElementById('chap').hidden=false;select(document.querySelector('#chap .mi'));}
+  else if(a==='back'){document.getElementById('chap').hidden=true;document.getElementById('menu').hidden=false;select(document.querySelector('#menu [data-a="chap"]'));}
+  else if(a==='sound')setMuted(!muted);
+  else if(a.startsWith('act'))startGame(+a.slice(3));
+});
+tl.addEventListener('mouseover',e=>{const b=e.target.closest('.mi');if(b&&state==='title'&&!b.classList.contains('sel'))select(b);});
+document.addEventListener('keydown',e=>{
+  if(state!=='title')return;
+  const items=[...menuEl().querySelectorAll('.mi')],cur=items.findIndex(b=>b.classList.contains('sel'));
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const n=(cur+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;select(items[n]);}
+  else if(e.key==='Escape'&&!document.getElementById('chap').hidden){e.preventDefault();document.querySelector('#chap [data-a="back"]').click();}
+});
+
+stage.addEventListener('click',()=>{if(state==='playing')finish();});
+stage.addEventListener('keydown',e=>{if(state==='title'||state==='trans')return;if(e.key==='Enter'||e.key===' '){e.preventDefault();if(state==='playing')finish();else if(state==='done')advancePage();}});
+document.getElementById('replay').onclick=()=>showTitle();
+document.getElementById('skip').onclick=()=>finish();
+document.getElementById('sound').onclick=()=>setMuted(!muted);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state==='playing'||state==='done'||state==='idle')){e.preventDefault();showTitle();}});
+document.getElementById('fsbtn').addEventListener('click',e=>{e.stopPropagation();const el=document.documentElement;
+  try{if(document.fullscreenElement)document.exitFullscreen();else (el.requestFullscreen||el.webkitRequestFullscreen).call(el).catch(()=>{});}catch(err){}});
+document.addEventListener('fullscreenchange',()=>{document.getElementById('fsbtn').textContent=document.fullscreenElement?'全画面を終了':'全画面';});
+showTitle();
+</script>
+
+</body>
+</html>
