@@ -320,9 +320,12 @@ function build(){
     pn.addEventListener('mouseenter',()=>{if(!canReplay(i))return;const b=document.getElementById('bd'+i);b.classList.add('show');
       requestAnimationFrame(()=>b.classList.add('arm'));ht=setTimeout(()=>replay(i),700);});
     pn.addEventListener('mouseleave',()=>{clearTimeout(ht);document.getElementById('bd'+i).classList.remove('show','arm');});
-    pn.addEventListener('click',e=>{if(canReplay(i)){e.stopPropagation();clearTimeout(ht);document.getElementById('bd'+i).classList.remove('show','arm');replay(i);}});
+    pn.addEventListener('click',e=>{if(p.fx2==='expand'&&state==='done'&&p._ended&&!p._expanded){e.stopPropagation();clearTimeout(ht);document.getElementById('bd'+i).classList.remove('show','arm');expandNow(i);return;}
+      if(canReplay(i)){e.stopPropagation();clearTimeout(ht);document.getElementById('bd'+i).classList.remove('show','arm');replay(i);}});
   });
-  document.getElementById('next').addEventListener('click',e=>{e.stopPropagation();if(state==='done')advancePage();});
+  document.getElementById('next').addEventListener('click',e=>{e.stopPropagation();if(state!=='done')return;
+    const xi=P.panels.findIndex(q=>q.fx2==='expand');
+    if(xi>=0&&!P.panels[xi]._expanded)expandNow(xi,advancePage);else advancePage();});
   const pv=document.getElementById('prev');
   if(pv){pv.addEventListener('click',e=>{e.stopPropagation();prevPage();});pv.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();prevPage();}});}
 }
@@ -364,7 +367,7 @@ function fxRun(i,instant){
       sp.classList.add('on');fr.classList.add('hl');
       timers.push(setTimeout(()=>{sp.classList.remove('on');fr.classList.remove('hl');},1700));
       return 2100;}
-    case 'expand': return expand(i,instant);
+    case 'expand': return 350;   /* expands only when the panel or ゲームスタート is clicked */
   }
   return 350;
 }
@@ -465,6 +468,11 @@ function play(quick){
   later(()=>document.getElementById('cap').classList.add('on'),quick?300:450);
   later(()=>nextPanel(0),quick?450:800);
 }
+/* full-screen the expand panel (the last shot); then() runs once the expansion has settled */
+function expandNow(i,then){
+  if(P.panels[i]._expanded){then&&then();return;}
+  stopOthers(i);const wait=expand(i,false);if(then)later(then,wait);
+}
 function prevPage(){
   if(page<=0||(state!=='playing'&&state!=='done'))return;
   clear();state='idle';inner.style.opacity=0;inner.querySelectorAll('video').forEach(v=>fadeOutVideo(v,400,()=>v.pause()));
@@ -474,7 +482,7 @@ function advancePage(){
   clear();state='idle';
   if(page<PAGES.length-1){inner.style.opacity=0;inner.querySelectorAll('video').forEach(v=>fadeOutVideo(v,400,()=>v.pause()));}
   if(page<PAGES.length-1){setTimeout(()=>{page++;play();inner.style.opacity=1;},450);}
-  else setTimeout(()=>{inner.style.opacity=1;document.getElementById('next').classList.remove('on');
+  else setTimeout(()=>{inner.style.opacity=1;document.getElementById('next').classList.remove('on');{const pv=document.getElementById('prev');if(pv)pv.classList.remove('on');}
     inner.insertAdjacentHTML('beforeend',`<div class="endtitle on" style="top:604px;font-size:22px;letter-spacing:.4em">— ゲーム開始 —</div><svg class="homebtn" id="homebtn" viewBox="0 0 214 36" role="button" aria-label="タイトルへ"><polygon points="0,1 188,1 212,18 188,35 0,35" fill="#ecebe6" stroke="#000" stroke-width="2"/><text x="96" y="25" text-anchor="middle" font-size="18" font-weight="700" fill="#111" font-family="Noto Sans JP,sans-serif">タイトルへ</text></svg>`);
     const hb=document.getElementById('homebtn');hb.addEventListener('click',e=>{e.stopPropagation();showTitle();});setTimeout(()=>hb.classList.add('on'),1600);
     status.textContent='开场结束，进入游戏';},450);
