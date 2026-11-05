@@ -425,6 +425,7 @@ function showPanel(i){document.getElementById('pn'+i).classList.add('on');docume
 function pageDone(){
   if(pageTrack())music(null,0,.5);                      /* last panel has frozen: fade the act music out over 0.5s */
   state='done';document.getElementById('next').classList.add('on');
+  later(()=>{const pv=document.getElementById('prev');if(pv)pv.classList.add('on');},600);   /* previous-page button follows the next-page button */
   status.textContent=`${P.act}「${P.name}」播放完毕 · 悬停或点击格子可重播`;
 }
 function nextPanel(i){
@@ -462,7 +463,6 @@ function play(quick){
   clear();state='playing';build();if(cur&&cur.k!==pageTrack())music(null,0,1);
   later(()=>document.getElementById('board').classList.add('on'),quick?0:200);
   later(()=>document.getElementById('cap').classList.add('on'),quick?300:450);
-  later(()=>{const pv=document.getElementById('prev');if(pv)pv.classList.add('on');},quick?600:700);
   later(()=>nextPanel(0),quick?450:800);
 }
 function prevPage(){
