@@ -60,6 +60,12 @@ button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
 .still{position:absolute;opacity:0;transform-origin:0 0;pointer-events:none}
 .still.ease{transition:opacity .35s ease,transform .5s cubic-bezier(.3,.7,.3,1)}
 .pop.go{transition:transform .7s cubic-bezier(.18,1.4,.35,1)}
+.prev{position:absolute;left:590px;top:653px;width:142px;height:36px;opacity:0;transition:opacity .4s;cursor:pointer;pointer-events:none}
+.prev.on{opacity:1;pointer-events:auto}
+.prev polygon.plate{fill:rgba(10,14,22,.85);stroke:#5a6070;stroke-width:1.5;transition:fill .15s,stroke .15s}
+.prev text{fill:#ecebe6}
+.prev:hover polygon.plate,.prev:focus-visible polygon.plate{fill:#1f2533;stroke:#ecebe6}
+.prev:focus-visible{outline:none}
 .next{position:absolute;left:746px;top:653px;width:214px;height:36px;opacity:0;transition:opacity .4s;cursor:pointer}
 .next.on{pointer-events:auto}
 .next:not(.on){pointer-events:none}
@@ -259,8 +265,10 @@ const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
 function clear(){timers.forEach(clearTimeout);timers=[];}
 const polyCss=pts=>pts2(pts).map(([x,y])=>`${x}px ${y}px`).join(',');
 
+/* each build is a new page generation; events from a previous page's videos are ignored */
+let buildGen=0;
 function build(){
-  P=PAGES[page];
+  P=PAGES[page];const gen=++buildGen;
   let h=`<div class="board" id="board" style="left:${P.board[0]}px;top:${P.board[1]}px;width:${P.board[2]}px;height:${P.board[3]}px"></div>`;
   let frames='',fxl='',pops='',badges='',spots='';
   P.panels.forEach((p,i)=>{
@@ -300,12 +308,14 @@ function build(){
   h+=`<svg class="next" id="next" viewBox="0 0 214 36" role="button" aria-label="${last?'ゲームスタート':'次のページ'}"><polygon points="0,1 188,1 212,18 188,35 0,35" fill="${FRAME}" stroke="#000" stroke-width="2"/>
     <text x="88" y="25" text-anchor="middle" font-size="19" font-weight="700" fill="#111" font-family="Noto Sans JP,Noto Sans SC,sans-serif">${last?'ゲームスタート':'次のページ'}</text>
     <polygon class="arrowpulse" points="175,11 190,18 175,25" fill="#111"/></svg>`;
+  if(page>0)h+=`<svg class="prev" id="prev" viewBox="0 0 142 36" role="button" tabindex="0" aria-label="前のページ"><polygon class="plate" points="24,1 141,1 141,35 24,35 1,18"/>
+    <polygon points="20,12 11,18 20,24" fill="#ecebe6"/><text x="80" y="24" text-anchor="middle" font-size="15" font-weight="700" font-family="Noto Sans JP,Noto Sans SC,sans-serif">前のページ</text></svg>`;
   inner.innerHTML=h;
   shots.innerHTML=P.panels.map((p,i)=>`<li id="s${i}"><b>${p.id}</b>${p.t}<span>${p.m}</span></li>`).join('');
   P.panels.forEach((p,i)=>{
     p._ended=false;p._playing=false;p._seq=false;
-    const v=document.getElementById('v'+i);v.muted=muted;v.addEventListener('ended',()=>onEnded(i));
-    if(p.end)v.addEventListener('timeupdate',()=>{if(p._playing&&v.currentTime>=p.end){v.pause();onEnded(i);}});
+    const v=document.getElementById('v'+i);v.muted=muted;v.addEventListener('ended',()=>{if(gen===buildGen)onEnded(i);});
+    if(p.end)v.addEventListener('timeupdate',()=>{if(gen===buildGen&&p._playing&&v.currentTime>=p.end){v.pause();onEnded(i);}});
     const pn=document.getElementById('pn'+i);let ht=null;
     pn.addEventListener('mouseenter',()=>{if(!canReplay(i))return;const b=document.getElementById('bd'+i);b.classList.add('show');
       requestAnimationFrame(()=>b.classList.add('arm'));ht=setTimeout(()=>replay(i),700);});
@@ -313,6 +323,8 @@ function build(){
     pn.addEventListener('click',e=>{if(canReplay(i)){e.stopPropagation();clearTimeout(ht);document.getElementById('bd'+i).classList.remove('show','arm');replay(i);}});
   });
   document.getElementById('next').addEventListener('click',e=>{e.stopPropagation();if(state==='done')advancePage();});
+  const pv=document.getElementById('prev');
+  if(pv){pv.addEventListener('click',e=>{e.stopPropagation();prevPage();});pv.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();prevPage();}});}
 }
 
 const canReplay=i=>{const p=P.panels[i];return p._ended&&!p._playing&&state!=='playing';};
@@ -404,7 +416,7 @@ function startVideo(i){
   const pr=v.play();if(pr&&pr.catch)pr.catch(()=>{v.muted=true;v.play().catch(()=>onEnded(i));});
 }
 function onEnded(i){
-  const p=P.panels[i];if(p._ended)return;p._ended=true;p._playing=false;
+  const p=P.panels[i];if(p._ended||!p._playing)return;p._ended=true;p._playing=false;
   document.getElementById('pn'+i).classList.add('done');cuesFinal(i);
   const wait=(p.fx2==='expand'&&p._expanded)?0:fxRun(i);
   if(state==='playing'&&p._seq){p._seq=false;later(()=>nextPanel(i+1),wait+300);}
@@ -450,7 +462,13 @@ function play(quick){
   clear();state='playing';build();if(cur&&cur.k!==pageTrack())music(null,0,1);
   later(()=>document.getElementById('board').classList.add('on'),quick?0:200);
   later(()=>document.getElementById('cap').classList.add('on'),quick?300:450);
+  later(()=>{const pv=document.getElementById('prev');if(pv)pv.classList.add('on');},quick?600:700);
   later(()=>nextPanel(0),quick?450:800);
+}
+function prevPage(){
+  if(page<=0||(state!=='playing'&&state!=='done'))return;
+  clear();state='idle';inner.style.opacity=0;inner.querySelectorAll('video').forEach(v=>fadeOutVideo(v,400,()=>v.pause()));
+  setTimeout(()=>{page--;play();inner.style.opacity=1;},450);
 }
 function advancePage(){
   clear();state='idle';
